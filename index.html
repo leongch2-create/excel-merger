@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Excel 合并工具</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --panel-2: #243044;
+      --border: #334155;
+      --text: #e8eef6;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-2: #2563eb;
+      --success: #22c55e;
+      --warn: #f59e0b;
+      --error: #ef4444;
+      --drop: #1e3a5f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #1e3a8a33, transparent),
+        radial-gradient(900px 400px at 100% 0%, #0ea5e633, transparent),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 20px 48px;
+    }
+
+    .wrap {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      background: linear-gradient(180deg, #1a2332, #15202e);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: var(--drop);
+    }
+
+    .dropzone.dragover {
+      transform: scale(1.01);
+    }
+
+    .drop-icon {
+      font-size: 42px;
+      margin-bottom: 10px;
+    }
+
+    .drop-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .drop-hint {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    #fileInput { display: none; }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s, transform 0.1s;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .btn-primary {
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      color: #fff;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-ghost {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .files {
+      margin-top: 18px;
+    }
+
+    .files h2 {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    .empty {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 12px;
+      background: var(--panel-2);
+      border-radius: 10px;
+    }
+
+    ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .badge {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #1d4ed8;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .name {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .size {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .remove {
+      background: transparent;
+      color: var(--muted);
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .remove:hover { color: var(--error); }
+
+    .status {
+      margin-top: 16px;
+      min-height: 22px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .status.info { color: var(--muted); }
+    .status.ok { color: var(--success); }
+    .status.warn { color: var(--warn); }
+    .status.err { color: var(--error); }
+
+    .rules {
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Excel 合并工具</h1>
+      <p class="sub">在浏览器本地合并多个表格。第一个文件保留表头，其余文件跳过第一行后追加。数据不会上传到服务器。</p>
+    </header>
+
+    <div class="card">
+      <div class="dropzone" id="dropzone">
+        <div class="drop-icon">📊</div>
+        <div class="drop-title">拖放 Excel 文件到这里，或点击选择</div>
+        <div class="drop-hint">支持多个 .xlsx / .xls，仅读取每个文件的第一个工作表</div>
+      </div>
+      <input id="fileInput" type="file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple />
+
+      <div class="toolbar">
+        <button class="btn-primary" id="mergeBtn" disabled>合并并下载</button>
+        <button class="btn-ghost" id="clearBtn" type="button">清空列表</button>
+      </div>
+
+      <div class="files">
+        <h2>已选文件（顺序即合并顺序）</h2>
+        <div id="fileList"><p class="empty">尚未选择文件</p></div>
+      </div>
+
+      <p class="status info" id="status">请先添加至少 2 个列结构相同的 Excel 文件。</p>
+      <p class="rules">规则：所有文件的列必须完全相同；只处理第一个 Sheet；输出文件名为「第一个文件名_new.xlsx」。</p>
+    </div>
+  </div>
+
+  <script>
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const fileList = document.getElementById("fileList");
+    const mergeBtn = document.getElementById("mergeBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const statusEl = document.getElementById("status");
+
+    let files = [];
+
+    function setStatus(text, type) {
+      statusEl.textContent = text;
+      statusEl.className = "status " + (type || "info");
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
+    function isExcel(file) {
+      const name = file.name.toLowerCase();
+      return name.endsWith(".xlsx") || name.endsWith(".xls");
+    }
+
+    function addFiles(fileListLike) {
+      const incoming = Array.from(fileListLike).filter(isExcel);
+      const skipped = Array.from(fileListLike).length - incoming.length;
+      const existing = new Set(files.map((f) => f.name + ":" + f.size + ":" + f.lastModified));
+      incoming.forEach((f) => {
+        const key = f.name + ":" + f.size + ":" + f.lastModified;
+        if (!existing.has(key)) {
+          files.push(f);
+          existing.add(key);
+        }
+      });
+      renderList();
+      if (skipped > 0) {
+        setStatus("已忽略 " + skipped + " 个非 Excel 文件。当前共 " + files.length + " 个文件。", "warn");
+      } else if (files.length < 2) {
+        setStatus("已添加文件。请至少再添加 1 个文件后再合并。", "info");
+      } else {
+        setStatus("已准备好 " + files.length + " 个文件，可开始合并。", "ok");
+      }
+    }
+
+    function renderList() {
+      mergeBtn.disabled = files.length < 2;
+      if (!files.length) {
+        fileList.innerHTML = '<p class="empty">尚未选择文件</p>';
+        return;
+      }
+      const ul = document.createElement("ul");
+      files.forEach((file, index) => {
+        const li = document.createElement("li");
+        li.innerHTML =
+          '<div class="badge">' + (index + 1) + "</div>" +
+          '<div class="meta"><div class="name"></div><div class="size"></div></div>' +
+          '<button class="remove" type="button">移除</button>';
+        li.querySelector(".name").textContent = file.name + (index === 0 ? "  （表头来源）" : "");
+        li.querySelector(".size").textContent = formatSize(file.size);
+        li.querySelector(".remove").addEventListener("click", () => {
+          files.splice(index, 1);
+          renderList();
+          setStatus(files.length ? "已更新文件列表。" : "列表已清空。", "info");
+        });
+        ul.appendChild(li);
+      });
+      fileList.innerHTML = "";
+      fileList.appendChild(ul);
+    }
+
+    function normalizeHeader(cell) {
+      if (cell === null || cell === undefined) return "";
+      return String(cell).trim();
+    }
+
+    function headersEqual(a, b) {
+      if (a.length !== b.length) return false;
+      return a.every((v, i) => normalizeHeader(v) === normalizeHeader(b[i]));
+    }
+
+    function readWorkbook(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, { type: "array", cellDates: true });
+            resolve(wb);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = () => reject(new Error("无法读取文件：" + file.name));
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    async function mergeFiles() {
+      if (files.length < 2) {
+        setStatus("请至少选择 2 个 Excel 文件。", "err");
+        return;
+      }
+      if (typeof XLSX === "undefined") {
+        setStatus("SheetJS 库未加载，请检查网络后刷新页面。", "err");
+        return;
+      }
+
+      mergeBtn.disabled = true;
+      setStatus("正在读取并校验列结构…", "info");
+
+      try {
+        const sheets = [];
+        let header = null;
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const wb = await readWorkbook(file);
+          const sheetName = wb.SheetNames[0];
+          if (!sheetName) {
+            throw new Error("文件「" + file.name + "」没有工作表。");
+          }
+          const ws = wb.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
+          if (!rows.length) {
+            throw new Error("文件「" + file.name + "」的第一个工作表为空。");
+          }
+
+          const currentHeader = rows[0].map(normalizeHeader);
+          while (currentHeader.length && currentHeader[currentHeader.length - 1] === "") {
+            currentHeader.pop();
+          }
+          if (!currentHeader.length) {
+            throw new Error("文件「" + file.name + "」没有有效表头。");
+          }
+
+          if (i === 0) {
+            header = currentHeader;
+            sheets.push({ file, rows, header });
+          } else {
+            const trimmed = rows[0].slice(0, header.length).map(normalizeHeader);
+            if (!headersEqual(header, trimmed)) {
+              throw new Error(
+                "列不一致：文件「" + file.name + "」的表头与第一个文件不同。\n" +
+                "期望：" + header.join(" | ") + "\n" +
+                "实际：" + trimmed.join(" | ")
+              );
+            }
+            sheets.push({ file, rows, header: currentHeader });
+          }
+        }
+
+        const merged = [];
+        sheets.forEach((item, index) => {
+          const dataRows = item.rows.slice(index === 0 ? 0 : 1);
+          dataRows.forEach((row) => {
+            const padded = header.map((_, col) => (row[col] !== undefined ? row[col] : ""));
+            const allEmpty = padded.every((v) => String(v).trim() === "");
+            if (!allEmpty) merged.push(padded);
+          });
+        });
+
+        const outWb = XLSX.utils.book_new();
+        const outWs = XLSX.utils.aoa_to_sheet(merged);
+        XLSX.utils.book_append_sheet(outWb, outWs, "Merged");
+
+        const firstName = files[0].name.replace(/\.(xlsx|xls)$/i, "");
+        const outName = firstName + "_new.xlsx";
+        XLSX.writeFile(outWb, outName);
+
+        setStatus("合并完成，已下载 " + outName + "（共 " + (merged.length - 1) + " 行数据）。", "ok");
+      } catch (err) {
+        setStatus(err.message || String(err), "err");
+      } finally {
+        mergeBtn.disabled = files.length < 2;
+      }
+    }
+
+    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      addFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener("change", () => {
+      addFiles(fileInput.files);
+      fileInput.value = "";
+    });
+    clearBtn.addEventListener("click", () => {
+      files = [];
+      renderList();
+      setStatus("列表已清空。请添加至少 2 个列结构相同的 Excel 文件。", "info");
+    });
+    mergeBtn.addEventListener("click", mergeFiles);
+  </script>
+</body>
+</html>
